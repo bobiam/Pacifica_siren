@@ -29,6 +29,7 @@ long unsigned int pause = 5000;
 boolean lockLow = true;
 boolean takeLowTime;
 int PIRValue = 0;
+int lastBrightness = 0;
 
 
 int loop_count, cooldown_count;
@@ -52,10 +53,11 @@ void setup() {
 
 void loop()
 {
-  PIRSensor();  
-  FastLED.setBrightness(analogRead(A0));
   EVERY_N_MILLISECONDS( 20) {
+    PIRSensor();  
     pacifica_loop();
+    lastBrightness = analogRead(A0);
+    FastLED.setBrightness(analogRead(A0));
     FastLED.show();
   }
 }
@@ -194,7 +196,7 @@ void pacifica_one_layer( CRGBPalette16& p, uint16_t cistart, uint16_t wavescale,
 
 void be_angry(){
   for(int i=0;i<NUM_LEDS;i++)
-    leds[i] = CRGB(random(127,256),0,0);
+    leds[i] = CHSV(0,random(200,256),lastBrightness);
 }
 
 void be_less_angry(){
