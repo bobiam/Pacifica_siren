@@ -1,5 +1,6 @@
 // "Pacifica_siren"
 // create a simple, but beautiful/haunting reactive piece
+// Written to run on "Sign of Sirens" by N. Izzi Long
 // October 2020, !Bob
 // Still for Dan.
 
@@ -18,9 +19,19 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS            256
 #define MAX_POWER_MILLIAMPS 1000
 #define LED_TYPE            WS2812B
-#define COLOR_ORDER         GRB
+#define COLOR_ORDER         RGB
 
-int loop_count;
+//example code for a PIR Sensor
+#define pirPin 2
+int calibrationTime = 30;
+long unsigned int lowIn;
+long unsigned int pause = 5000;
+boolean lockLow = true;
+boolean takeLowTime;
+int PIRValue = 0;
+
+
+int loop_count, cooldown_count;
 boolean angry, angry_first;
 
 //////////////////////////////////////////////////////////////////////////
@@ -33,6 +44,7 @@ void setup() {
         .setCorrection( TypicalLEDStrip );
   FastLED.setMaxPowerInVoltsAndMilliamps( 5, MAX_POWER_MILLIAMPS);
 
+  pinMode(pirPin, INPUT);
   loop_count = 0;
   angry = false;
   angry_first = true;
@@ -40,10 +52,31 @@ void setup() {
 
 void loop()
 {
+  PIRSensor();  
+  FastLED.setBrightness(analogRead(A0));
   EVERY_N_MILLISECONDS( 20) {
     pacifica_loop();
     FastLED.show();
   }
+}
+
+void PIRSensor() {
+   if(digitalRead(pirPin) == HIGH) {
+      if(lockLow) {
+         PIRValue = 1;
+         lockLow = false;
+      }
+      takeLowTime = true;
+   }
+   if(digitalRead(pirPin) == LOW) {
+      if(takeLowTime){
+         lowIn = millis();takeLowTime = false;
+      }
+      if(!lockLow && millis() - lowIn > pause) {
+         PIRValue = 0;
+         lockLow = true;
+      }
+   }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -85,64 +118,59 @@ CRGBPalette16 pacifica_palette_3 =
 void pacifica_loop()
 {
   loop_count++;
-  if(loop_count == 1)
-  {  
 
-    //1 in 10 chance
-    //if(random(0,10) == 0){
-    //every other
-    if(angry == false){
-      angry = true;
-    }else{
+  if(PIRValue)
+  {
+    //be angry now
+    be_angry();
+    angry = true;
+  }else{
+    //if angry is set, this is our first loop
+    if(angry)
+    {
+      //this decrements each loop and blends us back to our pattern, disable the angry flag until it trips again.
+      cooldown_count = 203;
       angry = false;
     }
-  }
 
-  if(loop_count > 404)
-    loop_count = 0;
-
-  if(angry)
-  {
-    if(loop_count < 256)
+    if(cooldown_count > 0)
     {
-      be_angry();
-    }else{
       be_less_angry();
+      cooldown_count--;
+    }else{
+      //fade is done, go back to pacifica
+      // Increment the four "color index start" counters, one for each wave layer.
+      // Each is incremented at a different speed, and the speeds vary over time.
+      static uint16_t sCIStart1, sCIStart2, sCIStart3, sCIStart4;
+      static uint32_t sLastms = 0;
+      uint32_t ms = GET_MILLIS();
+      uint32_t deltams = ms - sLastms;
+      sLastms = ms;
+      uint16_t speedfactor1 = beatsin16(3, 179, 269);
+      uint16_t speedfactor2 = beatsin16(4, 179, 269);
+      uint32_t deltams1 = (deltams * speedfactor1) / 256;
+      uint32_t deltams2 = (deltams * speedfactor2) / 256;
+      uint32_t deltams21 = (deltams1 + deltams2) / 2;
+      sCIStart1 += (deltams1 * beatsin88(1011,10,13));
+      sCIStart2 -= (deltams21 * beatsin88(777,8,11));
+      sCIStart3 -= (deltams1 * beatsin88(501,5,7));
+      sCIStart4 -= (deltams2 * beatsin88(257,4,6));
+  
+      // Clear out the LED array to a dim background blue-green
+      fill_solid( leds, NUM_LEDS, CRGB( 2, 6, 10));
+  
+      // Render each of four layers, with different scales and speeds, that vary over time
+      pacifica_one_layer( pacifica_palette_1, sCIStart1, beatsin16( 3, 11 * 256, 14 * 256), beatsin8( 10, 70, 130), 0-beat16( 301) );
+      pacifica_one_layer( pacifica_palette_2, sCIStart2, beatsin16( 4,  6 * 256,  9 * 256), beatsin8( 17, 40,  80), beat16( 401) );
+      pacifica_one_layer( pacifica_palette_3, sCIStart3, 6 * 256, beatsin8( 9, 10,38), 0-beat16(503));
+      pacifica_one_layer( pacifica_palette_3, sCIStart4, 5 * 256, beatsin8( 8, 10,28), beat16(601));
+  
+      // Add brighter 'whitecaps' where the waves lines up more
+      pacifica_add_whitecaps();
+  
+      // Deepen the blues and greens a bit
+      pacifica_deepen_colors();
     }
-  }else{
-    angry_first = true;
-    // Increment the four "color index start" counters, one for each wave layer.
-    // Each is incremented at a different speed, and the speeds vary over time.
-    static uint16_t sCIStart1, sCIStart2, sCIStart3, sCIStart4;
-    static uint32_t sLastms = 0;
-    uint32_t ms = GET_MILLIS();
-    uint32_t deltams = ms - sLastms;
-    sLastms = ms;
-    uint16_t speedfactor1 = beatsin16(3, 179, 269);
-    uint16_t speedfactor2 = beatsin16(4, 179, 269);
-    uint32_t deltams1 = (deltams * speedfactor1) / 256;
-    uint32_t deltams2 = (deltams * speedfactor2) / 256;
-    uint32_t deltams21 = (deltams1 + deltams2) / 2;
-    sCIStart1 += (deltams1 * beatsin88(1011,10,13));
-    sCIStart2 -= (deltams21 * beatsin88(777,8,11));
-    sCIStart3 -= (deltams1 * beatsin88(501,5,7));
-    sCIStart4 -= (deltams2 * beatsin88(257,4,6));
-
-    // Clear out the LED array to a dim background blue-green
-    fill_solid( leds, NUM_LEDS, CRGB( 2, 6, 10));
-
-    // Render each of four layers, with different scales and speeds, that vary over time
-    pacifica_one_layer( pacifica_palette_1, sCIStart1, beatsin16( 3, 11 * 256, 14 * 256), beatsin8( 10, 70, 130), 0-beat16( 301) );
-    pacifica_one_layer( pacifica_palette_2, sCIStart2, beatsin16( 4,  6 * 256,  9 * 256), beatsin8( 17, 40,  80), beat16( 401) );
-    pacifica_one_layer( pacifica_palette_3, sCIStart3, 6 * 256, beatsin8( 9, 10,38), 0-beat16(503));
-    pacifica_one_layer( pacifica_palette_3, sCIStart4, 5 * 256, beatsin8( 8, 10,28), beat16(601));
-
-    // Add brighter 'whitecaps' where the waves lines up more
-    pacifica_add_whitecaps();
-
-    // Deepen the blues and greens a bit
-    pacifica_deepen_colors();
-
   }
 }
 
@@ -165,16 +193,8 @@ void pacifica_one_layer( CRGBPalette16& p, uint16_t cistart, uint16_t wavescale,
 }
 
 void be_angry(){
-  if(angry_first == true)
-  {
-    for(int i=0;i<NUM_LEDS;i++)
-      leds[i] = CRGB(random(127,256),0,0);
-    angry_first = false;
-  }else{
-    for(int i=0;i<NUM_LEDS;i++)    
-      if(leds[i].red > 3)
-        leds[i].fadeLightBy(1);
-  }
+  for(int i=0;i<NUM_LEDS;i++)
+    leds[i] = CRGB(random(127,256),0,0);
 }
 
 void be_less_angry(){
