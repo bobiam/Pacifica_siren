@@ -131,7 +131,7 @@ void pacifica_loop()
     if(angry)
     {
       //this decrements each loop and blends us back to our pattern, disable the angry flag until it trips again.
-      cooldown_count = 203;
+      cooldown_count = 160;
       angry = false;
     }
 
