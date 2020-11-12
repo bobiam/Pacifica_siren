@@ -17,7 +17,7 @@ FASTLED_USING_NAMESPACE
 
 #define DATA_PIN            3
 #define NUM_LEDS            256
-#define MAX_POWER_MILLIAMPS 1000
+#define MAX_POWER_MILLIAMPS 12000
 #define LED_TYPE            WS2812B
 #define COLOR_ORDER         RGB
 
@@ -29,7 +29,8 @@ long unsigned int pause = 5000;
 boolean lockLow = true;
 boolean takeLowTime;
 int PIRValue = 0;
-int lastBrightness = 0;
+int lastPotentiometer = 0;
+int brightness = 200;
 
 
 int loop_count, cooldown_count;
@@ -40,6 +41,7 @@ boolean angry, angry_first;
 CRGB leds[NUM_LEDS];
 
 void setup() {
+  Serial.begin(9600);  
   delay( 3000); // 3 second delay for boot recovery, and a moment of silence
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS)
         .setCorrection( TypicalLEDStrip );
@@ -56,8 +58,13 @@ void loop()
   EVERY_N_MILLISECONDS( 20) {
     PIRSensor();  
     pacifica_loop();
-    lastBrightness = analogRead(A0);
-    FastLED.setBrightness(analogRead(A0));
+    if(lastPotentiometer != analogRead(A0))
+    {
+      lastPotentiometer = analogRead(A0);
+      brightness = lastPotentiometer * (255.0/1023.0);
+      FastLED.setBrightness(brightness);  
+      Serial.println(brightness);      
+    }    
     FastLED.show();
   }
 }
@@ -196,7 +203,7 @@ void pacifica_one_layer( CRGBPalette16& p, uint16_t cistart, uint16_t wavescale,
 
 void be_angry(){
   for(int i=0;i<NUM_LEDS;i++)
-    leds[i] = CHSV(0,random(200,256),lastBrightness);
+    leds[i] = CHSV(0,random(200,256),brightness);
 }
 
 void be_less_angry(){
