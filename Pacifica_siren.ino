@@ -21,7 +21,7 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE            WS2812B
 #define COLOR_ORDER         RGB
 
-//example code for a PIR Sensor
+//PIR Sensor
 #define pirPin 2
 int calibrationTime = 30;
 long unsigned int lowIn;
@@ -31,7 +31,7 @@ boolean takeLowTime;
 int PIRValue = 0;
 int lastPotentiometer = 0;
 int brightness = 200;
-
+int adjust_amount = 1;
 
 int loop_count, cooldown_count;
 boolean angry, angry_first;
@@ -138,13 +138,46 @@ void pacifica_loop()
     if(angry)
     {
       //this decrements each loop and blends us back to our pattern, disable the angry flag until it trips again.
-      cooldown_count = 160;
+      cooldown_count = 255;
       angry = false;
     }
 
     if(cooldown_count > 0)
     {
-      be_less_angry();
+      //when strip is too dim, the fade happens too fast.  Slow it down based on ranges of brightness.
+      bool do_cooldown = false;
+      
+      if(brightness < 80)
+      {
+        if(cooldown_count % 12 == 1)
+          do_cooldown = true;
+      }
+
+      if(brightness > 79 && brightness < 120)
+      {
+        if(cooldown_count % 8 == 1)
+          do_cooldown = true;
+      }      
+
+      if(brightness > 119 && brightness < 190)
+      {
+        if(cooldown_count % 4 == 1)
+          do_cooldown = true;
+      }
+
+      if(brightness > 189 && brightness < 211)
+      {
+        if(cooldown_count % 2 == 1)
+          do_cooldown = true;
+      }
+
+      if(brightness > 210)
+        do_cooldown = true;
+      
+      if(do_cooldown)
+      {
+        be_less_angry();
+      }
       cooldown_count--;
     }else{
       //fade is done, go back to pacifica
@@ -209,7 +242,7 @@ void be_angry(){
 void be_less_angry(){
   for(int i=0;i<NUM_LEDS;i++)
   {
-    fadeTowardColor(leds[i], CRGB(2,6,10),1);
+    fadeTowardColor(leds[i], CRGB(2,6,10),adjust_amount);
   }
 }
 
